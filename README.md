@@ -51,3 +51,7 @@ The app keeps paper preferences in the CSV and all work happens in browser memor
 11. Back in HotCRP, use the upload option on the review preferences page to upload the exported preferences file.
 
 `Load Demo` is available before a CSV is loaded. Topic scores can be saved and loaded separately as JSON, but the paper preferences themselves stay in the exported CSV.
+
+## License
+
+This project is released under the [MIT License](LICENSE).
