@@ -107,20 +107,6 @@ h2 {
   text-underline-offset: 3px;
 }
 
-.top-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 8px;
-  font-size: 13px;
-}
-
-.top-links a {
-  color: var(--accent-dark);
-  text-decoration-thickness: 1px;
-  text-underline-offset: 3px;
-}
-
 .actions {
   display: flex;
   flex-wrap: wrap;
