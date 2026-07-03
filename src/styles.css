@@ -46,10 +46,6 @@ button,
   gap: 6px;
 }
 
-.button {
-  text-decoration: none;
-}
-
 button:disabled {
   cursor: not-allowed;
   opacity: 0.45;
@@ -62,8 +58,7 @@ button:disabled {
 }
 
 .primary:hover,
-button:hover:not(:disabled),
-.button:hover {
+button:hover:not(:disabled) {
   border-color: var(--accent-dark);
 }
 
@@ -105,6 +100,11 @@ h2 {
 .paper-meta,
 .abstract {
   color: var(--muted);
+}
+
+.topbar p a {
+  color: var(--accent-dark);
+  text-underline-offset: 3px;
 }
 
 .top-links {
