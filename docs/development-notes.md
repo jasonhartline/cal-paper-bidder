@@ -38,8 +38,8 @@ Current behavior:
 - Show positive paper preference counts split into high/mid/low bands across the positive side of the selected score range.
 - Highlight up to five abstract sentences that most influence the current text-model score, with green/red intensity for positive/negative signal.
 - Hide `Load Demo` once any CSV is loaded.
-- Mark exported CSV state dirty when paper preferences change, warn before unload or replacement, and clear it after `Export CSV`.
-- Track topic-score JSON dirty state separately from CSV dirty state, warn before replacing/discarding it, and clear it after `Save topic scores` or loading topic scores.
+- Enable `Export CSV` only when paper preferences have unsaved changes, warn before unload or replacement, and disable it again after export.
+- Track topic-score JSON dirty state separately from CSV dirty state, enable `Save topic scores` only when needed, warn before replacing/discarding it, and disable it after saving or loading topic scores.
 - Export the same CSV shape with updated `preference` values.
 
 ### Classifier Shape

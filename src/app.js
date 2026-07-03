@@ -689,11 +689,11 @@ function markExportDirty() {
 }
 
 function updateExportState() {
-  els.exportCsv.disabled = !state.papers.length;
-  els.exportCsv.textContent = state.exportDirty ? "Export CSV *" : "Export CSV";
+  els.exportCsv.disabled = !state.papers.length || !state.exportDirty;
+  els.exportCsv.textContent = "Export CSV";
   els.exportCsv.title = state.exportDirty
     ? "Preference changes have not been exported."
-    : "Export preferences as CSV.";
+    : "No preference changes to export.";
 }
 
 function updateLoadDemoVisibility() {
@@ -707,11 +707,11 @@ function markTopicsDirty() {
 }
 
 function updateTopicSaveState() {
-  els.saveTopics.disabled = !state.papers.length;
-  els.saveTopics.textContent = state.topicsDirty ? "Save topic scores *" : "Save topic scores";
+  els.saveTopics.disabled = !state.papers.length || !state.topicsDirty;
+  els.saveTopics.textContent = "Save topic scores";
   els.saveTopics.title = state.topicsDirty
     ? "Topic score changes have not been saved."
-    : "Save topic scores as JSON.";
+    : "No topic score changes to save.";
 }
 
 function confirmDiscardUnsavedChanges(action) {
