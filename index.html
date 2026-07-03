@@ -19,7 +19,7 @@
             Load CSV
             <input id="csv-file" type="file" accept=".csv,text/csv" />
           </label>
-          <button id="load-example" type="button">Load Example</button>
+          <button id="load-example" type="button">Load Demo</button>
           <button id="export-csv" type="button" disabled>Export CSV</button>
         </div>
       </header>
@@ -56,8 +56,17 @@
       <section id="workspace" class="workspace hidden">
         <aside class="topics-panel">
           <div class="panel-heading">
-            <h2>Topics</h2>
-            <span id="topic-count">0</span>
+            <div>
+              <h2>Topics</h2>
+              <span id="topic-count">0</span>
+            </div>
+            <div class="panel-actions">
+              <label class="button small-button">
+                Load topic scores
+                <input id="topic-file" type="file" accept=".json,application/json" />
+              </label>
+              <button id="save-topics" type="button" disabled>Save topic scores</button>
+            </div>
           </div>
           <div id="topics"></div>
         </aside>

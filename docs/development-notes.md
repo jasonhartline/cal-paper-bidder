@@ -29,6 +29,7 @@ Current behavior:
 - Load the public example CSV.
 - Extract semicolon-separated topics.
 - Let the user rate topics with `-3..3` sliders.
+- Let the user save/load topic scores as a small JSON helper file.
 - Let the user score papers with a configurable preference range, default `-20..20`.
 - Treat `0` as unranked/no ranking, not as a meaningful neutral label.
 - Re-rank papers explicitly with a `Re-rank` button.
@@ -93,7 +94,7 @@ http://127.0.0.1:5173
 
 Test path:
 
-1. Click `Load Example`.
+1. Click `Load Demo`.
 2. Move a few topic sliders.
 3. Click `Re-rank`.
 4. Score a few papers positive and negative.

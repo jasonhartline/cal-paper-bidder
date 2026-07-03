@@ -109,7 +109,8 @@ h2 {
   justify-content: flex-end;
 }
 
-#csv-file {
+#csv-file,
+#topic-file {
   display: none;
 }
 
@@ -190,6 +191,20 @@ h2 {
   padding: 12px;
   border-bottom: 1px solid var(--line);
   background: var(--panel-soft);
+}
+
+.panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.small-button,
+.panel-actions button {
+  min-height: 30px;
+  padding: 0 8px;
+  font-size: 12px;
 }
 
 .papers-heading {

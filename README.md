@@ -28,4 +28,4 @@ Then open:
 http://127.0.0.1:5173
 ```
 
-The app keeps all state in browser memory. Upload a CSV, adjust topic and paper sliders, click `Re-rank`, and export an updated CSV.
+The app keeps paper preferences in the CSV and all work happens in browser memory. Upload a CSV, adjust topic and paper sliders, click `Re-rank`, and export an updated CSV. Topic scores can optionally be saved to or loaded from a small JSON file.

@@ -18,8 +18,10 @@ const state = {
 
 const els = {
   file: document.querySelector("#csv-file"),
+  topicFile: document.querySelector("#topic-file"),
   loadExample: document.querySelector("#load-example"),
   exportCsv: document.querySelector("#export-csv"),
+  saveTopics: document.querySelector("#save-topics"),
   rerank: document.querySelector("#rerank"),
   prefMin: document.querySelector("#pref-min"),
   prefNeutral: document.querySelector("#pref-neutral"),
@@ -52,6 +54,22 @@ els.loadExample.addEventListener("click", async () => {
     return;
   }
   await loadCsvText(await response.text(), "example-revprefs.csv");
+});
+
+els.topicFile.addEventListener("change", async (event) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  await loadTopicScores(await file.text());
+  event.target.value = "";
+});
+
+els.saveTopics.addEventListener("click", () => {
+  const payload = {
+    format: "cal-paper-bidder-topic-scores",
+    version: 1,
+    topics: Object.fromEntries([...state.topicRatings.entries()].sort((a, b) => a[0].localeCompare(b[0]))),
+  };
+  downloadText("topic-scores.json", JSON.stringify(payload, null, 2) + "\n", "application/json");
 });
 
 els.exportCsv.addEventListener("click", () => {
@@ -137,6 +155,33 @@ async function loadCsvText(text, sourceName) {
   rerankPapers();
   state.rankingDirty = false;
   renderAll(sourceName);
+}
+
+async function loadTopicScores(text) {
+  if (!state.papers.length) {
+    alert("Load a paper CSV before loading topic scores.");
+    return;
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    alert("Topic scores file must be JSON.");
+    return;
+  }
+  const scores = parsed.topics && typeof parsed.topics === "object" ? parsed.topics : parsed;
+  const currentTopics = new Set(getTopics());
+  let loaded = 0;
+  for (const [topic, value] of Object.entries(scores)) {
+    const rating = Number(value);
+    if (currentTopics.has(topic) && Number.isFinite(rating)) {
+      state.topicRatings.set(topic, clamp(rating, -3, 3));
+      loaded += 1;
+    }
+  }
+  renderTopics();
+  markRankingDirty();
+  alert(`Loaded ${loaded} topic score${loaded === 1 ? "" : "s"}.`);
 }
 
 function readSettings() {
@@ -368,6 +413,7 @@ function renderAll(sourceName) {
   els.emptyState.classList.add("hidden");
   els.workspace.classList.remove("hidden");
   els.exportCsv.disabled = false;
+  els.saveTopics.disabled = false;
   renderTopics();
   renderPapers();
   els.rankSummary.textContent = `${rankSummaryText()} Loaded ${state.papers.length} papers from ${sourceName}.`;
