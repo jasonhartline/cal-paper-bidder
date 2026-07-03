@@ -46,6 +46,10 @@ button,
   gap: 6px;
 }
 
+.button {
+  text-decoration: none;
+}
+
 button:disabled {
   cursor: not-allowed;
   opacity: 0.45;
@@ -58,7 +62,8 @@ button:disabled {
 }
 
 .primary:hover,
-button:hover:not(:disabled) {
+button:hover:not(:disabled),
+.button:hover {
   border-color: var(--accent-dark);
 }
 
