@@ -1,8 +1,8 @@
-# Cal Paper Bidder Project Spec
+# CAL Paper Bidder Project Spec
 
 ## Goal
 
-Build a local-first web app that helps conference reviewers bid on too-large paper lists using continuous active learning (CAL). The reviewer scores papers as high-interest, low-interest, conflict/skip, or neutral; the system retrains on demand and reranks the remaining papers.
+Build a local-first web app that helps conference reviewers bid on too-large paper lists using continuous active learning (CAL). The reviewer scores papers as high-interest or low-interest; `0` means unranked/no preference. The system retrains on demand and reranks the remaining papers.
 
 The first target is a HotCRP-style reviewer-preferences CSV. HotCRP API integration can follow after the local CSV loop is working.
 
@@ -58,7 +58,7 @@ A PC member or reviewer who has access to a HotCRP conference and needs to bid o
 ### Core workflow
 
 1. Reviewer creates a project.
-2. Reviewer sets the project preference range. Default: `-20` to `20`, with `0` neutral.
+2. Reviewer sets the project preference range. Default: `-20` to `20`, with `0` meaning unranked/no preference.
 3. Reviewer imports a HotCRP-style preference CSV with columns `paper,title,preference,abstract,topics`.
 4. System normalizes records into a local paper table.
 5. System extracts the distinct topic list from the CSV's semicolon-separated `topics` field.
@@ -77,7 +77,7 @@ For the local UI, use labels that map cleanly to HotCRP preference scores:
 - strong yes
 - yes
 - weak yes
-- neutral
+- unranked / no preference
 - weak no
 - no
 - strong no
@@ -85,7 +85,7 @@ For the local UI, use labels that map cleanly to HotCRP preference scores:
 
 Preference values are numeric in the CSV. The public development fixture initializes every preference to `0`; the app should not assume this is the full scale. Preference mappings must be configurable per project.
 
-The default preference range should be `-20` to `20`, because that appears to be common for conference bidding. The user can change the minimum, maximum, and neutral value during project setup.
+The default preference range should be `-20` to `20`, because that appears to be common for conference bidding. The user can change the minimum, maximum, and no-ranking value during project setup.
 
 ### MVP scope
 
@@ -131,7 +131,7 @@ MVP can defer:
 ### Bid
 
 - `paper_id`
-- `label`: `strong_yes`, `yes`, `weak_yes`, `neutral`, `weak_no`, `no`, `strong_no`, `conflict`, `skip`
+- `label`: `strong_yes`, `yes`, `weak_yes`, `unranked`, `weak_no`, `no`, `strong_no`, `conflict`, `skip`
 - `preference`: integer in the project preference range
 - `hotcrp_pref`: nullable text such as `20X`, `10`, `0`, `-5`, `-20`, if expertise letters are enabled
 - `created_at`
@@ -142,9 +142,9 @@ MVP can defer:
 
 - `preference_min`: default `-20`
 - `preference_max`: default `20`
-- `preference_neutral`: default `0`
-- `positive_threshold`: default first integer above neutral
-- `negative_threshold`: default first integer below neutral
+- `preference_neutral`: default `0`; this means unranked/no preference
+- `positive_threshold`: default first integer above no ranking
+- `negative_threshold`: default first integer below no ranking
 - `topic_min`: default `-3`
 - `topic_max`: default `3`
 - `topic_neutral`: default `0`
@@ -203,7 +203,7 @@ Topic preferences are local reviewer inputs. They are derived from the imported 
 - `features`: text normalization, TF-IDF vectorization, optional topic and author features.
 - `learner`: model training, scoring, active selection policy.
 - `app_api`: project, paper, bid, rank, import, export endpoints.
-- `web_ui`: topic sliders, ranked paper list, paper scoring controls, re-rank action, export controls.
+- `web_ui`: topic sliders, text/topic weight slider, ranked paper list, paper scoring controls, re-rank action, export controls.
 
 ## UI Model
 
@@ -237,7 +237,7 @@ The paper preference slider should be fast to adjust while scanning.
 Suggested slider:
 
 - Range: project `preference_min` to `preference_max`; default `-20` to `20`
-- Labels: `bad`, `neutral`, `good`
+- Labels: `bad`, `unranked`, `good`
 - Default: imported `preference`, usually `0`
 
 The UI should support keyboard movement and scoring later, but sliders are the first interaction model.
@@ -276,7 +276,7 @@ After the reviewer has scored some papers, train a text-and-topic relevance mode
 
 1. Treat positive bids as relevant examples.
 2. Treat negative bids as non-relevant examples.
-3. Ignore neutral and conflict/skip labels for supervised training unless the project mapping says otherwise.
+3. Ignore unranked and conflict/skip labels for supervised training unless the project mapping says otherwise.
 4. Use title, abstract, and topics as features.
 5. Rank unlabeled papers by predicted relevance to the reviewer.
 6. Reorder the list by combined relevance score, optionally with a small exploration adjustment.
@@ -311,7 +311,24 @@ The per-paper slider writes directly to `preference` in the project preference r
 -20, ..., -1, 0, 1, ..., 20
 ```
 
-Values above `positive_threshold` are positive training examples; values below `negative_threshold` are negative training examples; neutral values are unjudged/neutral for training.
+Values above `positive_threshold` are positive training examples; values below `negative_threshold` are negative training examples; `0`/no-ranking values are ignored for training.
+
+### Topic vs text weighting
+
+The UI has a slider for blending topic scores and text-model scores:
+
+```text
+combined_score = model_weight * normalized_model_score + (1 - model_weight) * normalized_topic_score
+```
+
+The recommended `model_weight` is based on balanced labeled data:
+
+```text
+balanced_count = min(positive_count, negative_count)
+recommended_model_weight = balanced_count / (balanced_count + 5)
+```
+
+While the user has not adjusted the slider, the selected weight tracks the recommendation. If the user changes it, the app uses the user's selected weight until they click `Use recommended`.
 
 ### Combined ranking
 
@@ -346,7 +363,7 @@ Preserve this shape for local imports and exports. The `topics` cell is semicolo
 Default project preference range:
 
 - minimum: `-20`
-- neutral: `0`
+- no ranking: `0`
 - maximum: `20`
 
 If the UI uses named quick buttons in addition to the slider, map them proportionally into the configured range. For the default `-20..20` range:
@@ -354,7 +371,7 @@ If the UI uses named quick buttons in addition to the slider, map them proportio
 - `strong_yes` -> `20`
 - `yes` -> `10`
 - `weak_yes` -> `3`
-- `neutral` -> `0`
+- `unranked` -> `0`
 - `weak_no` -> `-3`
 - `no` -> `-10`
 - `strong_no` -> `-20`
@@ -441,7 +458,7 @@ Metrics:
 - What exact CSV columns does HotCRP expose to ordinary PC members for the target conferences?
 - Are reviewer preferences always writable through the API for PC members, or do some conferences disable this?
 - Should the default user experience optimize for "find my likely positive bids" or "produce a complete calibrated preference file"?
-- Should neutral labels train the model as weak negatives or remain ignored?
+- Should zero/unranked papers remain ignored for training in all conference formats?
 - Is chair/admin mode in scope, where one tool supports multiple reviewers?
 
 ## Near-Term Recommendation

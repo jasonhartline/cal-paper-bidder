@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Cal Paper Bidder</title>
+    <title>CAL Paper Bidder</title>
     <link rel="stylesheet" href="src/styles.css" />
     <script src="src/app.js" defer></script>
   </head>
@@ -11,12 +11,12 @@
     <main class="app-shell">
       <header class="topbar">
         <div>
-          <h1>Cal Paper Bidder</h1>
-          <p>Client-side active learning for HotCRP-style review preferences.</p>
+          <h1>CAL Paper Bidder</h1>
+          <p>Continuous Active Learning for HotCRP-style review preferences. Browser-only: files stay on this computer and are not uploaded.</p>
         </div>
         <div class="actions">
           <label class="button primary">
-            Upload CSV
+            Load CSV
             <input id="csv-file" type="file" accept=".csv,text/csv" />
           </label>
           <button id="load-example" type="button">Load Example</button>
@@ -30,19 +30,20 @@
           <input id="pref-min" type="number" value="-20" />
         </div>
         <div class="setting">
-          <label for="pref-neutral">Neutral</label>
+          <label for="pref-neutral">No ranking</label>
           <input id="pref-neutral" type="number" value="0" />
         </div>
         <div class="setting">
           <label for="pref-max">Maximum</label>
           <input id="pref-max" type="number" value="20" />
         </div>
-        <div class="setting grow">
-          <label for="classifier">Classifier</label>
-          <select id="classifier">
-            <option value="linearText">Linear text classifier</option>
-            <option value="topicOnly">Topic scores only</option>
-          </select>
+        <div class="setting grow model-weight-setting">
+          <label id="model-weight-label" for="model-weight">Text model weight</label>
+          <input id="model-weight" type="range" min="0" max="100" step="1" value="0" disabled />
+          <div class="model-weight-meta">
+            <span id="model-weight-value">0% text / 100% topics</span>
+            <button id="model-weight-reset" type="button" disabled>Use recommended</button>
+          </div>
         </div>
         <button id="rerank" type="button" disabled>Re-rank</button>
       </section>
@@ -70,7 +71,7 @@
             <div class="filters">
               <label>
                 <input id="hide-rated" type="checkbox" />
-                Hide rated
+                Hide ranked
               </label>
             </div>
           </div>

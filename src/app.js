@@ -8,7 +8,11 @@ const state = {
     preferenceNeutral: 0,
     preferenceMax: 20,
   },
-  classifier: "linearText",
+  modelWeight: 0,
+  recommendedModelWeight: 0,
+  modelWeightManual: false,
+  rankingDirty: false,
+  lastLabelStats: { positive: 0, negative: 0, unranked: 0, balanced: 0 },
   lastRankReason: "topic_only",
 };
 
@@ -20,7 +24,10 @@ const els = {
   prefMin: document.querySelector("#pref-min"),
   prefNeutral: document.querySelector("#pref-neutral"),
   prefMax: document.querySelector("#pref-max"),
-  classifier: document.querySelector("#classifier"),
+  modelWeight: document.querySelector("#model-weight"),
+  modelWeightValue: document.querySelector("#model-weight-value"),
+  modelWeightReset: document.querySelector("#model-weight-reset"),
+  modelWeightLabel: document.querySelector("#model-weight-label"),
   emptyState: document.querySelector("#empty-state"),
   workspace: document.querySelector("#workspace"),
   topics: document.querySelector("#topics"),
@@ -64,18 +71,32 @@ els.exportCsv.addEventListener("click", () => {
 els.rerank.addEventListener("click", () => {
   readSettings();
   rerankPapers();
+  state.rankingDirty = false;
   renderPapers();
+  updateRerankState();
 });
 
 els.hideRated.addEventListener("change", renderPapers);
-els.classifier.addEventListener("change", () => {
-  state.classifier = els.classifier.value;
+
+els.modelWeight.addEventListener("input", () => {
+  state.modelWeightManual = true;
+  state.modelWeight = Number(els.modelWeight.value) / 100;
+  updateModelWeightControls();
+  markRankingDirty();
+});
+
+els.modelWeightReset.addEventListener("click", () => {
+  state.modelWeightManual = false;
+  state.modelWeight = state.recommendedModelWeight;
+  updateModelWeightControls();
+  markRankingDirty();
 });
 
 for (const input of [els.prefMin, els.prefNeutral, els.prefMax]) {
   input.addEventListener("change", () => {
     readSettings();
     renderPapers();
+    markRankingDirty();
   });
 }
 
@@ -104,11 +125,14 @@ async function loadCsvText(text, sourceName) {
       modelScore: 0,
       combinedScore: 0,
       rankReason: "topic_only",
+      expanded: false,
     };
   });
 
+  state.modelWeightManual = false;
   initializeTopicRatings();
   rerankPapers();
+  state.rankingDirty = false;
   renderAll(sourceName);
 }
 
@@ -153,16 +177,20 @@ function getTopics() {
 
 function rerankPapers() {
   computeTopicScores();
-  const classifier = classifiers[state.classifier] || classifiers.linearText;
-  const model = classifier.train(state.papers, state.settings);
+  state.lastLabelStats = labelStats();
+  const model = classifiers.linearText.train(state.papers, state.settings);
   const modelActive = model.active;
+  state.recommendedModelWeight = recommendedModelWeight(state.lastLabelStats);
+  if (!state.modelWeightManual) {
+    state.modelWeight = state.recommendedModelWeight;
+  }
+  const modelWeight = modelActive ? state.modelWeight : 0;
 
   for (const paper of state.papers) {
     paper.modelScore = model.score(paper);
     const normalizedTopic = normalizeTopicScore(paper.topicScore);
     const normalizedModel = modelActive ? paper.modelScore : 0;
-    const alpha = modelActive ? 0.7 : 0;
-    paper.combinedScore = alpha * normalizedModel + (1 - alpha) * normalizedTopic;
+    paper.combinedScore = modelWeight * normalizedModel + (1 - modelWeight) * normalizedTopic;
     paper.rankReason = modelActive ? "blended" : "topic_only";
   }
 
@@ -175,6 +203,7 @@ function rerankPapers() {
       a.title.localeCompare(b.title)
     );
   });
+  updateModelWeightControls();
 }
 
 function computeTopicScores() {
@@ -302,10 +331,9 @@ function renderAll(sourceName) {
   els.emptyState.classList.add("hidden");
   els.workspace.classList.remove("hidden");
   els.exportCsv.disabled = false;
-  els.rerank.disabled = false;
   renderTopics();
   renderPapers();
-  els.rankSummary.textContent = `Loaded ${state.papers.length} papers from ${sourceName}.`;
+  els.rankSummary.textContent = `${rankSummaryText()} Loaded ${state.papers.length} papers from ${sourceName}.`;
 }
 
 function renderTopics() {
@@ -327,6 +355,7 @@ function renderTopics() {
       input.addEventListener("input", () => {
         state.topicRatings.set(topic, Number(input.value));
         label.querySelector("span").textContent = input.value;
+        markRankingDirty();
       });
       row.append(label, input);
       return row;
@@ -340,15 +369,16 @@ function renderPapers() {
   const visible = hideRated
     ? state.papers.filter((paper) => paper.preference === neutral)
     : state.papers;
-  const rated = state.papers.filter((paper) => paper.preference !== neutral).length;
-  els.paperCount.textContent = `${state.papers.length} papers, ${rated} rated`;
+  const stats = labelStats();
+  els.paperCount.textContent = `${state.papers.length} papers, ${stats.positive + stats.negative} ranked`;
   els.rankSummary.textContent = rankSummaryText();
   els.papers.replaceChildren(...visible.map(renderPaperCard));
+  updateRerankState();
 }
 
 function renderPaperCard(paper) {
   const article = document.createElement("article");
-  article.className = "paper-card";
+  article.className = `paper-card ${scoreStateClass(paper.preference)}`;
 
   const body = document.createElement("div");
   const title = document.createElement("h3");
@@ -368,8 +398,20 @@ function renderPaperCard(paper) {
   }
   const abstract = document.createElement("p");
   abstract.className = "abstract";
-  abstract.textContent = truncate(paper.abstract, 560);
+  const isLong = paper.abstract.length > 560;
+  abstract.textContent = paper.expanded ? paper.abstract : truncate(paper.abstract, 560);
   body.append(title, meta, abstract);
+  if (isLong) {
+    const abstractButton = document.createElement("button");
+    abstractButton.type = "button";
+    abstractButton.className = "link-button";
+    abstractButton.textContent = paper.expanded ? "Hide full abstract" : "Show full abstract";
+    abstractButton.addEventListener("click", () => {
+      paper.expanded = !paper.expanded;
+      renderPapers();
+    });
+    body.append(abstractButton);
+  }
 
   const controls = document.createElement("div");
   controls.className = "paper-controls";
@@ -377,9 +419,10 @@ function renderPaperCard(paper) {
   scoreRow.className = "paper-score-row";
   const scoreLabel = document.createElement("label");
   scoreLabel.className = "score-label";
-  scoreLabel.innerHTML = `<strong>Preference</strong><span>${paper.preference}</span>`;
+  scoreLabel.innerHTML = `<strong>Preference</strong><span class="${scoreValueClass(paper.preference)}">${paper.preference}</span>`;
   const slider = document.createElement("input");
   slider.type = "range";
+  slider.className = `preference-slider ${scoreStateClass(paper.preference)}`;
   slider.min = String(state.settings.preferenceMin);
   slider.max = String(state.settings.preferenceMax);
   slider.step = "1";
@@ -388,21 +431,20 @@ function renderPaperCard(paper) {
     paper.preference = Number(slider.value);
     const value = scoreLabel.querySelector("span");
     value.textContent = slider.value;
-    value.className = Number(slider.value) > state.settings.preferenceNeutral
-      ? "positive"
-      : Number(slider.value) < state.settings.preferenceNeutral
-        ? "negative"
-        : "";
+    value.className = scoreValueClass(paper.preference);
+    slider.className = `preference-slider ${scoreStateClass(paper.preference)}`;
+    article.className = `paper-card ${scoreStateClass(paper.preference)}`;
+    markRankingDirty();
   });
   scoreRow.append(scoreLabel, slider);
 
   const readout = document.createElement("div");
   readout.className = "score-readout";
   readout.innerHTML = `
-    <span><b>Combined</b><em>${formatScore(paper.combinedScore)}</em></span>
-    <span><b>Topic</b><em>${formatScore(paper.topicScore)}</em></span>
-    <span><b>Model</b><em>${formatScore(paper.modelScore)}</em></span>
-    <span><b>Reason</b><em>${paper.rankReason}</em></span>
+    <span><b>Rank score</b><em>${formatScore(paper.combinedScore)}</em></span>
+    <span><b>Topic match</b><em>${formatScore(paper.topicScore)}</em></span>
+    <span><b>Text model</b><em>${formatScore(paper.modelScore)}</em></span>
+    <span><b>Ranking</b><em>${rankReasonText(paper.rankReason)}</em></span>
   `;
   controls.append(scoreRow, readout);
   article.append(body, controls);
@@ -410,11 +452,84 @@ function renderPaperCard(paper) {
 }
 
 function rankSummaryText() {
+  const stats = labelStats();
+  const pending = state.rankingDirty ? "Ranking changes pending. " : "";
+  if (state.lastRankReason === "blended") {
+    const topicWeight = 1 - state.modelWeight;
+    return `${pending}Ranked by ${percent(state.modelWeight)} text model / ${percent(topicWeight)} topics. ${stats.positive} positive, ${stats.negative} negative, ${stats.unranked} unranked.`;
+  }
+  const classifierNote = stats.balanced === 0
+    ? " Text model needs at least 1 positive and 1 negative paper score."
+    : "";
+  return `${pending}Ranked by topics only.${classifierNote} ${stats.positive} positive, ${stats.negative} negative, ${stats.unranked} unranked.`;
+}
+
+function labelStats() {
   const positive = state.papers.filter((paper) => paper.preference > state.settings.preferenceNeutral).length;
   const negative = state.papers.filter((paper) => paper.preference < state.settings.preferenceNeutral).length;
-  const neutral = state.papers.length - positive - negative;
-  const mode = state.lastRankReason === "blended" ? "topic + model ranking" : "topic-only ranking";
-  return `${mode}. ${positive} positive, ${negative} negative, ${neutral} neutral.`;
+  const unranked = state.papers.length - positive - negative;
+  return {
+    positive,
+    negative,
+    unranked,
+    balanced: Math.min(positive, negative),
+  };
+}
+
+function recommendedModelWeight(stats) {
+  return stats.balanced / (stats.balanced + 5);
+}
+
+function updateModelWeightControls() {
+  const stats = labelStats();
+  const modelAvailable = stats.balanced > 0;
+  els.modelWeight.disabled = !modelAvailable;
+  els.modelWeightReset.disabled = !modelAvailable || !state.modelWeightManual;
+  els.modelWeight.value = String(Math.round(state.modelWeight * 100));
+  els.modelWeightValue.textContent = modelAvailable
+    ? `${percent(state.modelWeight)} text / ${percent(1 - state.modelWeight)} topics; recommended ${percent(state.recommendedModelWeight)} text`
+    : "Text model needs at least 1 positive and 1 negative score";
+  els.modelWeightLabel.textContent = modelAvailable
+    ? "Text model weight"
+    : "Text model weight unavailable";
+}
+
+function markRankingDirty() {
+  if (!state.papers.length) return;
+  state.rankingDirty = true;
+  state.lastLabelStats = labelStats();
+  state.recommendedModelWeight = recommendedModelWeight(state.lastLabelStats);
+  if (!state.modelWeightManual) {
+    state.modelWeight = state.recommendedModelWeight;
+  }
+  updateModelWeightControls();
+  updateRerankState();
+  els.rankSummary.textContent = rankSummaryText();
+}
+
+function updateRerankState() {
+  els.rerank.disabled = !state.papers.length || !state.rankingDirty;
+  els.rerank.textContent = state.rankingDirty ? "Re-rank" : "Ranked";
+}
+
+function scoreStateClass(preference) {
+  if (preference > state.settings.preferenceNeutral) return "score-positive";
+  if (preference < state.settings.preferenceNeutral) return "score-negative";
+  return "score-unranked";
+}
+
+function scoreValueClass(preference) {
+  if (preference > state.settings.preferenceNeutral) return "positive";
+  if (preference < state.settings.preferenceNeutral) return "negative";
+  return "unranked";
+}
+
+function rankReasonText(reason) {
+  return reason === "blended" ? "topics + text" : "topics only";
+}
+
+function percent(value) {
+  return `${Math.round(value * 100)}%`;
 }
 
 function parsePreference(value) {

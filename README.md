@@ -1,4 +1,4 @@
-# Cal Paper Bidder
+# CAL Paper Bidder
 
 Continuous Active Learning Paper Bidder is a tool concept for helping conference reviewers bid on large paper sets with far less manual browsing.
 
@@ -16,7 +16,7 @@ The CSV input/output format is described in [docs/input-format.md](docs/input-fo
 
 ## Run Locally
 
-This first version is a dependency-free static browser app. From the repo root:
+This first version is a dependency-free static browser app. Files are parsed in the browser only; they are not uploaded to a server. From the repo root:
 
 ```sh
 python3 -m http.server 5173

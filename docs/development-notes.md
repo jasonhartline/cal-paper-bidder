@@ -4,7 +4,7 @@
 
 ### Project Direction
 
-Cal Paper Bidder is a client-side web app for bidding on conference papers using a continuous-active-learning workflow.
+CAL Paper Bidder is a browser-only web app for bidding on conference papers using a continuous-active-learning workflow. Files are parsed in the browser and are not uploaded to a server.
 
 The durable state is the CSV itself:
 
@@ -30,22 +30,26 @@ Current behavior:
 - Extract semicolon-separated topics.
 - Let the user rate topics with `-3..3` sliders.
 - Let the user score papers with a configurable preference range, default `-20..20`.
+- Treat `0` as unranked/no ranking, not as a meaningful neutral label.
 - Re-rank papers explicitly with a `Re-rank` button.
+- Blend topic scores with text-model scores using a model-weight slider.
+- Recommend the model weight from `min(positive_count, negative_count)`.
 - Export the same CSV shape with updated `preference` values.
 
 ### Classifier Shape
 
 The app has a pluggable classifier interface in `src/app.js`.
 
-Current classifiers:
+Current classifier:
 
-- `topicOnly`: ranks only from topic sliders.
 - `linearText`: simple in-browser text model using title, abstract, and topics.
+
+Topic-only behavior is represented by a `0%` text-model weight, not by a classifier dropdown.
 
 Classifier responsibilities:
 
 1. Train from existing paper preferences.
-2. Produce scores for unrated papers.
+2. Produce scores for unranked papers.
 3. Let the UI rank highest predicted-score papers first.
 
 ### Verification So Far
