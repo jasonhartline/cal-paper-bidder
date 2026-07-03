@@ -602,24 +602,53 @@ function rankSummaryText() {
   const pending = state.rankingDirty ? "Ranking changes pending. " : "";
   if (state.lastRankReason === "blended") {
     const topicWeight = 1 - state.modelWeight;
-    return `${pending}Ranked by ${percent(state.modelWeight)} text model / ${percent(topicWeight)} topics. ${stats.positive} positive, ${stats.negative} negative, ${stats.unranked} unranked.`;
+    return `${pending}Ranked by ${percent(state.modelWeight)} text model / ${percent(topicWeight)} topics. ${labelStatsText(stats)}`;
   }
   const classifierNote = stats.balanced === 0
     ? " Text model needs at least 1 positive and 1 negative paper score."
     : "";
-  return `${pending}Ranked by topics only.${classifierNote} ${stats.positive} positive, ${stats.negative} negative, ${stats.unranked} unranked.`;
+  return `${pending}Ranked by topics only.${classifierNote} ${labelStatsText(stats)}`;
 }
 
 function labelStats() {
-  const positive = state.papers.filter((paper) => paper.preference > state.settings.preferenceNeutral).length;
+  const positivePapers = state.papers.filter((paper) => paper.preference > state.settings.preferenceNeutral);
+  const positive = positivePapers.length;
   const negative = state.papers.filter((paper) => paper.preference < state.settings.preferenceNeutral).length;
   const unranked = state.papers.length - positive - negative;
+  const positiveBands = positiveBandCounts(positivePapers);
   return {
     positive,
+    positiveHigh: positiveBands.high,
+    positiveMid: positiveBands.mid,
+    positiveLow: positiveBands.low,
     negative,
     unranked,
     balanced: Math.min(positive, negative),
   };
+}
+
+function positiveBandCounts(positivePapers) {
+  const { preferenceNeutral, preferenceMax } = state.settings;
+  const positiveRange = preferenceMax - preferenceNeutral;
+  const counts = { high: 0, mid: 0, low: 0 };
+  for (const paper of positivePapers) {
+    if (positiveRange <= 0) {
+      counts.high += 1;
+      continue;
+    }
+    const position = (paper.preference - preferenceNeutral) / positiveRange;
+    if (position > 2 / 3) counts.high += 1;
+    else if (position > 1 / 3) counts.mid += 1;
+    else counts.low += 1;
+  }
+  return counts;
+}
+
+function labelStatsText(stats) {
+  const positiveDetail = stats.positive
+    ? `${stats.positive} positive (${stats.positiveHigh} high, ${stats.positiveMid} mid, ${stats.positiveLow} low)`
+    : "0 positive";
+  return `${positiveDetail}, ${stats.negative} negative, ${stats.unranked} unranked.`;
 }
 
 function recommendedModelWeight(stats) {

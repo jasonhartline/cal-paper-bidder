@@ -35,6 +35,7 @@ Current behavior:
 - Re-rank papers explicitly with a `Re-rank` button.
 - Blend topic scores with text-model scores using a model-weight slider.
 - Recommend the model weight from `min(positive_count, negative_count)`.
+- Show positive paper preference counts split into high/mid/low bands across the positive side of the selected score range.
 - Highlight up to five abstract sentences that most influence the current text-model score, with green/red intensity for positive/negative signal.
 - Hide `Load Demo` once any CSV is loaded.
 - Mark exported CSV state dirty when paper preferences change, warn before unload or replacement, and clear it after `Export CSV`.
