@@ -18,7 +18,7 @@ Practical implementation choices:
 - Implement the first prototype directly rather than depending on a full e-discovery stack. The core algorithm is small enough to keep transparent.
 - Start with a simple model: topic-rating seed scores for the initial ordering, then TF-IDF over title, abstract, and topics with logistic regression or naive Bayes after paper scores exist.
 - Treat ASReview as an optional implementation reference because it is active, Apache-2.0 licensed, Python-based, and implements active learning over textual records.
-- Add uncertainty/diversity sampling only after the top-probability CAL loop is working.
+- Add uncertainty/diversity sampling only after the top-score CAL loop is working.
 
 Useful references:
 
@@ -283,7 +283,7 @@ After the reviewer has scored some papers, train a text-and-topic relevance mode
 
 For MVP, keep the policy simple:
 
-- 80 percent highest predicted positive-bid probability.
+- 80 percent highest predicted positive-bid score.
 - 10 percent uncertain papers near the decision boundary.
 - 10 percent diverse papers from under-sampled topic areas.
 
@@ -312,6 +312,18 @@ The per-paper slider writes directly to `preference` in the project preference r
 ```
 
 Values above `positive_threshold` are positive training examples; values below `negative_threshold` are negative training examples; `0`/no-ranking values are ignored for training.
+
+### Text model
+
+The MVP text model should be a TF-IDF nearest-centroid ranker:
+
+```text
+model_raw_score =
+  cosine_similarity(paper, positive_centroid)
+  - cosine_similarity(paper, negative_centroid)
+```
+
+Normalize raw model scores over the current paper set before blending. Display model, topic, and combined scores on the project preference range, default `-20..20`.
 
 ### Topic vs text weighting
 

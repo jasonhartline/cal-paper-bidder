@@ -124,6 +124,9 @@ async function loadCsvText(text, sourceName) {
       topicScore: 0,
       modelScore: 0,
       combinedScore: 0,
+      topicDisplayScore: 0,
+      modelDisplayScore: 0,
+      combinedDisplayScore: 0,
       rankReason: "topic_only",
       expanded: false,
     };
@@ -187,10 +190,13 @@ function rerankPapers() {
   const modelWeight = modelActive ? state.modelWeight : 0;
 
   for (const paper of state.papers) {
-    paper.modelScore = model.score(paper);
     const normalizedTopic = normalizeTopicScore(paper.topicScore);
+    paper.modelScore = model.score(paper);
+    paper.topicDisplayScore = scaleToPreferenceRange(normalizedTopic);
+    paper.modelDisplayScore = modelActive ? scaleToPreferenceRange(paper.modelScore) : 0;
     const normalizedModel = modelActive ? paper.modelScore : 0;
     paper.combinedScore = modelWeight * normalizedModel + (1 - modelWeight) * normalizedTopic;
+    paper.combinedDisplayScore = scaleToPreferenceRange(paper.combinedScore);
     paper.rankReason = modelActive ? "blended" : "topic_only";
   }
 
@@ -220,17 +226,6 @@ function normalizeTopicScore(score) {
 }
 
 const classifiers = {
-  topicOnly: {
-    train() {
-      return {
-        active: false,
-        score() {
-          return 0;
-        },
-      };
-    },
-  },
-
   linearText: {
     train(papers, settings) {
       const positive = [];
@@ -253,19 +248,31 @@ const classifiers = {
         }
       }
 
-      const weights = new Map();
-      addClassWeights(weights, positive, tokenized, documentFrequency, papers.length, 1);
-      addClassWeights(weights, negative, tokenized, documentFrequency, papers.length, -1);
+      const vectors = new Map();
+      for (const paper of papers) {
+        vectors.set(paper.id, tfidfVector(tokenized.get(paper.id) || [], documentFrequency, papers.length));
+      }
+
+      const positiveCentroid = centroid(positive.map((paper) => vectors.get(paper.id)));
+      const negativeCentroid = centroid(negative.map((paper) => vectors.get(paper.id)));
+      const rawScores = new Map();
+      for (const paper of papers) {
+        const vector = vectors.get(paper.id);
+        rawScores.set(
+          paper.id,
+          cosineSimilarity(vector, positiveCentroid) - cosineSimilarity(vector, negativeCentroid),
+        );
+      }
+      const values = [...rawScores.values()];
+      const min = Math.min(...values);
+      const max = Math.max(...values);
 
       return {
         active: true,
         score(paper) {
-          const tokens = tokenized.get(paper.id) || tokenize(paperToText(paper));
-          let raw = 0;
-          for (const token of tokens) {
-            raw += weights.get(token) || 0;
-          }
-          return sigmoid(raw / Math.max(8, Math.sqrt(tokens.length || 1)));
+          const raw = rawScores.get(paper.id) || 0;
+          if (max === min) return 0.5;
+          return (raw - min) / (max - min);
         },
       };
     },
@@ -279,21 +286,51 @@ const inactiveModel = {
   },
 };
 
-function addClassWeights(weights, papers, tokenized, documentFrequency, totalDocuments, direction) {
+function tfidfVector(tokens, documentFrequency, totalDocuments) {
   const counts = new Map();
-  let total = 0;
-  for (const paper of papers) {
-    for (const token of tokenized.get(paper.id) || []) {
-      counts.set(token, (counts.get(token) || 0) + 1);
-      total += 1;
-    }
+  for (const token of tokens) {
+    counts.set(token, (counts.get(token) || 0) + 1);
   }
-  if (!total) return;
+  const vector = new Map();
+  const total = tokens.length || 1;
   for (const [token, count] of counts) {
     const tf = count / total;
     const idf = Math.log((1 + totalDocuments) / (1 + (documentFrequency.get(token) || 0))) + 1;
-    weights.set(token, (weights.get(token) || 0) + direction * tf * idf);
+    vector.set(token, tf * idf);
   }
+  return normalizeVector(vector);
+}
+
+function centroid(vectors) {
+  const result = new Map();
+  const used = vectors.filter((vector) => vector && vector.size);
+  if (!used.length) return result;
+  for (const vector of used) {
+    for (const [token, value] of vector) {
+      result.set(token, (result.get(token) || 0) + value / used.length);
+    }
+  }
+  return normalizeVector(result);
+}
+
+function normalizeVector(vector) {
+  const norm = Math.sqrt([...vector.values()].reduce((sum, value) => sum + value * value, 0));
+  if (!norm) return vector;
+  const normalized = new Map();
+  for (const [token, value] of vector) {
+    normalized.set(token, value / norm);
+  }
+  return normalized;
+}
+
+function cosineSimilarity(a, b) {
+  if (!a?.size || !b?.size) return 0;
+  let sum = 0;
+  const [small, large] = a.size < b.size ? [a, b] : [b, a];
+  for (const [token, value] of small) {
+    sum += value * (large.get(token) || 0);
+  }
+  return sum;
 }
 
 function paperToText(paper) {
@@ -441,9 +478,9 @@ function renderPaperCard(paper) {
   const readout = document.createElement("div");
   readout.className = "score-readout";
   readout.innerHTML = `
-    <span><b>Rank score</b><em>${formatScore(paper.combinedScore)}</em></span>
-    <span><b>Topic match</b><em>${formatScore(paper.topicScore)}</em></span>
-    <span><b>Text model</b><em>${formatScore(paper.modelScore)}</em></span>
+    <span><b>Rank score</b><em>${formatDisplayScore(paper.combinedDisplayScore)}</em></span>
+    <span><b>Topic score</b><em>${formatDisplayScore(paper.topicDisplayScore)}</em></span>
+    <span><b>Text score</b><em>${formatDisplayScore(paper.modelDisplayScore)}</em></span>
     <span><b>Ranking</b><em>${rankReasonText(paper.rankReason)}</em></span>
   `;
   controls.append(scoreRow, readout);
@@ -619,16 +656,24 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
-function sigmoid(value) {
-  return 1 / (1 + Math.exp(-value));
-}
-
 function truncate(text, maxLength) {
   return text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text;
 }
 
 function formatScore(value) {
   return Number.isFinite(value) ? value.toFixed(3) : "0.000";
+}
+
+function scaleToPreferenceRange(normalizedScore) {
+  const { preferenceMin, preferenceNeutral, preferenceMax } = state.settings;
+  if (normalizedScore <= 0.5) {
+    return preferenceMin + (normalizedScore / 0.5) * (preferenceNeutral - preferenceMin);
+  }
+  return preferenceNeutral + ((normalizedScore - 0.5) / 0.5) * (preferenceMax - preferenceNeutral);
+}
+
+function formatDisplayScore(value) {
+  return Number.isFinite(value) ? value.toFixed(1) : "0.0";
 }
 
 function escapeHtml(text) {

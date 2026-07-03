@@ -42,7 +42,9 @@ The app has a pluggable classifier interface in `src/app.js`.
 
 Current classifier:
 
-- `linearText`: simple in-browser text model using title, abstract, and topics.
+- `linearText`: in-browser TF-IDF nearest-centroid model using title, abstract, and topics.
+
+The text model scores each paper by similarity to positive papers minus similarity to negative papers, normalizes those scores across the current paper set, and displays them on the configured preference range.
 
 Topic-only behavior is represented by a `0%` text-model weight, not by a classifier dropdown.
 
