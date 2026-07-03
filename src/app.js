@@ -208,7 +208,6 @@ async function loadTopicScores(text) {
   state.topicsDirty = false;
   updateTopicSaveState();
   markRankingDirty();
-  alert(`Loaded ${loaded} topic score${loaded === 1 ? "" : "s"}.`);
 }
 
 function readSettings() {
