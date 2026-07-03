@@ -14,6 +14,12 @@ See [docs/project-spec.md](docs/project-spec.md) for the initial product and eng
 
 The CSV input/output format is described in [docs/input-format.md](docs/input-format.md). A checked-in public example is available at [examples/example-revprefs.csv](examples/example-revprefs.csv).
 
+Live app:
+
+```text
+https://jasonhartline.github.io/cal-paper-bidder/
+```
+
 ## Run Locally
 
 This first version is a dependency-free static browser app. Files are parsed in the browser only; they are not uploaded to a server. From the repo root:
