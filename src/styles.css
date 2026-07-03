@@ -320,6 +320,35 @@ input[type="range"].score-negative {
   line-height: 1.45;
 }
 
+.sentence-highlight {
+  border-radius: 4px;
+  padding: 1px 2px;
+}
+
+.positive-highlight.intensity-1 {
+  background: rgba(15, 118, 110, 0.12);
+}
+
+.positive-highlight.intensity-2 {
+  background: rgba(15, 118, 110, 0.2);
+}
+
+.positive-highlight.intensity-3 {
+  background: rgba(15, 118, 110, 0.3);
+}
+
+.negative-highlight.intensity-1 {
+  background: rgba(159, 47, 47, 0.11);
+}
+
+.negative-highlight.intensity-2 {
+  background: rgba(159, 47, 47, 0.19);
+}
+
+.negative-highlight.intensity-3 {
+  background: rgba(159, 47, 47, 0.29);
+}
+
 .link-button {
   min-height: 0;
   border: 0;

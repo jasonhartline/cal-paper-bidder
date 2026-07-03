@@ -12,6 +12,7 @@ const state = {
   recommendedModelWeight: 0,
   modelWeightManual: false,
   rankingDirty: false,
+  exportDirty: false,
   lastLabelStats: { positive: 0, negative: 0, unranked: 0, balanced: 0 },
   lastRankReason: "topic_only",
 };
@@ -43,11 +44,16 @@ const els = {
 els.file.addEventListener("change", async (event) => {
   const file = event.target.files?.[0];
   if (!file) return;
+  if (!confirmDiscardCsvChanges()) {
+    event.target.value = "";
+    return;
+  }
   await loadCsvText(await file.text(), file.name);
   event.target.value = "";
 });
 
 els.loadExample.addEventListener("click", async () => {
+  if (!confirmDiscardCsvChanges()) return;
   const response = await fetch("examples/example-revprefs.csv");
   if (!response.ok) {
     alert("Could not load the example CSV. Try running a local web server.");
@@ -84,6 +90,8 @@ els.exportCsv.addEventListener("click", () => {
     })),
   );
   downloadText("revprefs-updated.csv", csv, "text/csv");
+  state.exportDirty = false;
+  updateExportState();
 });
 
 els.rerank.addEventListener("click", () => {
@@ -114,9 +122,16 @@ for (const input of [els.prefMin, els.prefNeutral, els.prefMax]) {
   input.addEventListener("change", () => {
     readSettings();
     renderPapers();
+    markExportDirty();
     markRankingDirty();
   });
 }
+
+window.addEventListener("beforeunload", (event) => {
+  if (!state.exportDirty) return;
+  event.preventDefault();
+  event.returnValue = "";
+});
 
 async function loadCsvText(text, sourceName) {
   const rows = parseCsv(text);
@@ -146,6 +161,7 @@ async function loadCsvText(text, sourceName) {
       modelDisplayScore: 0,
       combinedDisplayScore: 0,
       rankReason: "topic_only",
+      sentenceHighlights: [],
       expanded: false,
     };
   });
@@ -154,6 +170,7 @@ async function loadCsvText(text, sourceName) {
   initializeTopicRatings();
   rerankPapers();
   state.rankingDirty = false;
+  state.exportDirty = false;
   renderAll(sourceName);
 }
 
@@ -243,6 +260,7 @@ function rerankPapers() {
     paper.combinedScore = modelWeight * normalizedModel + (1 - modelWeight) * normalizedTopic;
     paper.combinedDisplayScore = scaleToPreferenceRange(paper.combinedScore);
     paper.rankReason = modelActive ? "blended" : "topic_only";
+    paper.sentenceHighlights = modelActive ? model.explain(paper) : [];
   }
 
   state.lastRankReason = modelActive ? "blended" : "topic_only";
@@ -319,6 +337,9 @@ const classifiers = {
           if (max === min) return 0.5;
           return (raw - min) / (max - min);
         },
+        explain(paper) {
+          return explainPaperSentences(paper, documentFrequency, papers.length, positiveCentroid, negativeCentroid);
+        },
       };
     },
   },
@@ -329,7 +350,35 @@ const inactiveModel = {
   score() {
     return 0;
   },
+  explain() {
+    return [];
+  },
 };
+
+function explainPaperSentences(paper, documentFrequency, totalDocuments, positiveCentroid, negativeCentroid) {
+  const sentences = splitSentences(paper.abstract);
+  const scored = sentences
+    .map((sentence, index) => {
+      const vector = tfidfVector(tokenize(sentence), documentFrequency, totalDocuments);
+      const score = cosineSimilarity(vector, positiveCentroid) - cosineSimilarity(vector, negativeCentroid);
+      return { sentence, index, score };
+    })
+    .filter((item) => item.sentence && item.score !== 0);
+  if (!scored.length) return [];
+
+  const maxAbs = Math.max(...scored.map((item) => Math.abs(item.score)));
+  if (!maxAbs) return [];
+  const cutoff = Math.max(maxAbs * 0.35, 0.015);
+  return scored
+    .filter((item) => Math.abs(item.score) >= cutoff)
+    .sort((a, b) => Math.abs(b.score) - Math.abs(a.score))
+    .slice(0, 5)
+    .map((item) => ({
+      index: item.index,
+      score: item.score,
+      intensity: Math.min(1, Math.abs(item.score) / maxAbs),
+    }));
+}
 
 function tfidfVector(tokens, documentFrequency, totalDocuments) {
   const counts = new Map();
@@ -412,7 +461,8 @@ function tokenize(text) {
 function renderAll(sourceName) {
   els.emptyState.classList.add("hidden");
   els.workspace.classList.remove("hidden");
-  els.exportCsv.disabled = false;
+  updateLoadDemoVisibility();
+  updateExportState();
   els.saveTopics.disabled = false;
   renderTopics();
   renderPapers();
@@ -482,7 +532,7 @@ function renderPaperCard(paper) {
   const abstract = document.createElement("p");
   abstract.className = "abstract";
   const isLong = paper.abstract.length > 560;
-  abstract.textContent = paper.expanded ? paper.abstract : truncate(paper.abstract, 560);
+  renderAbstractText(abstract, paper);
   body.append(title, meta, abstract);
   if (isLong) {
     const abstractButton = document.createElement("button");
@@ -491,7 +541,7 @@ function renderPaperCard(paper) {
     abstractButton.textContent = paper.expanded ? "Hide full abstract" : "Show full abstract";
     abstractButton.addEventListener("click", () => {
       paper.expanded = !paper.expanded;
-      abstract.textContent = paper.expanded ? paper.abstract : truncate(paper.abstract, 560);
+      renderAbstractText(abstract, paper);
       abstractButton.textContent = paper.expanded ? "Hide full abstract" : "Show full abstract";
     });
     body.append(abstractButton);
@@ -518,6 +568,7 @@ function renderPaperCard(paper) {
     value.className = scoreValueClass(paper.preference);
     slider.className = `preference-slider ${scoreStateClass(paper.preference)}`;
     article.className = `paper-card ${scoreStateClass(paper.preference)}`;
+    markExportDirty();
     markRankingDirty();
   });
   scoreRow.append(scoreLabel, slider);
@@ -591,6 +642,29 @@ function markRankingDirty() {
   els.rankSummary.textContent = rankSummaryText();
 }
 
+function markExportDirty() {
+  if (!state.papers.length) return;
+  state.exportDirty = true;
+  updateExportState();
+}
+
+function updateExportState() {
+  els.exportCsv.disabled = !state.papers.length;
+  els.exportCsv.textContent = state.exportDirty ? "Export CSV *" : "Export CSV";
+  els.exportCsv.title = state.exportDirty
+    ? "Preference changes have not been exported."
+    : "Export preferences as CSV.";
+}
+
+function updateLoadDemoVisibility() {
+  els.loadExample.classList.toggle("hidden", state.papers.length > 0);
+}
+
+function confirmDiscardCsvChanges() {
+  if (!state.exportDirty) return true;
+  return window.confirm("You have preference changes that have not been exported. Continue and discard them?");
+}
+
 function updateRerankState() {
   els.rerank.disabled = !state.papers.length || !state.rankingDirty;
   els.rerank.textContent = state.rankingDirty ? "Re-rank" : "Ranked";
@@ -612,6 +686,52 @@ function rankReasonText(reason) {
   return reason === "blended" ? "topics + text" : "topics only";
 }
 
+function renderAbstractText(container, paper) {
+  container.replaceChildren();
+  const sentences = splitSentences(paper.abstract);
+  if (!sentences.length) {
+    container.textContent = "";
+    return;
+  }
+
+  const highlights = new Map((paper.sentenceHighlights || []).map((item) => [item.index, item]));
+  const maxLength = paper.expanded ? Infinity : 560;
+  let used = 0;
+
+  sentences.some((sentence, index) => {
+    const separator = used ? " " : "";
+    const remaining = maxLength - used - separator.length;
+    if (remaining <= 0) return true;
+
+    let visibleSentence = sentence;
+    let done = false;
+    if (visibleSentence.length > remaining) {
+      visibleSentence = `${visibleSentence.slice(0, Math.max(0, remaining - 1)).trimEnd()}…`;
+      done = true;
+    }
+
+    if (separator) container.append(document.createTextNode(separator));
+    const highlight = highlights.get(index);
+    if (highlight) {
+      const span = document.createElement("span");
+      span.className = `sentence-highlight ${highlight.score > 0 ? "positive-highlight" : "negative-highlight"} intensity-${highlightIntensity(highlight.intensity)}`;
+      span.title = `${highlight.score > 0 ? "Positive" : "Negative"} text-model signal`;
+      span.textContent = visibleSentence;
+      container.append(span);
+    } else {
+      container.append(document.createTextNode(visibleSentence));
+    }
+    used += separator.length + visibleSentence.length;
+    return done;
+  });
+}
+
+function highlightIntensity(value) {
+  if (value >= 0.72) return 3;
+  if (value >= 0.44) return 2;
+  return 1;
+}
+
 function percent(value) {
   return `${Math.round(value * 100)}%`;
 }
@@ -626,6 +746,14 @@ function splitTopics(value) {
     .split(";")
     .map((topic) => topic.trim())
     .filter(Boolean);
+}
+
+function splitSentences(text) {
+  return String(text || "")
+    .replace(/\s+/g, " ")
+    .match(/[^.!?]+[.!?]+|[^.!?]+$/g)
+    ?.map((sentence) => sentence.trim())
+    .filter(Boolean) || [];
 }
 
 function parseCsv(text) {
