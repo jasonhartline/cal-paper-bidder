@@ -18,6 +18,19 @@ The CSV does not contain topic scores. The app creates topic scores by extractin
 
 The app should preserve this CSV shape on export, changing only `preference` values unless the user explicitly asks for another output.
 
+## Getting This File From HotCRP
+
+In HotCRP:
+
+1. Go to the review preferences page.
+2. Scroll to the bottom of the page.
+3. Find the download controls.
+4. Click `Download`.
+5. Choose `Preference file with abstracts`.
+6. Click `Go`.
+
+After using CAL Paper Bidder, export the updated CSV. Then return to the HotCRP review preferences page and use the upload option to upload the exported preferences file.
+
 ## Public Checked-In Example
 
 The checked-in public example is:

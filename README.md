@@ -32,12 +32,16 @@ The app keeps paper preferences in the CSV and all work happens in browser memor
 
 ## How To Use
 
-1. Click `Load CSV` and choose a file with columns `paper,title,preference,abstract,topics`.
-2. Optionally score the topic sliders to create the first topic-based ranking.
-3. Click `Re-rank` to apply the current topic and text-model weights.
-4. Score papers with the preference sliders. The default range is `-20` to `20`, with `0` meaning no ranking.
-5. Click `Re-rank` again after adding paper scores. Once there are positive and negative scores, the text model joins the ranking.
-6. Use the text-model weight slider if you want more or less influence from the learned model.
-7. Click `Export CSV` when you want the updated preferences file.
+1. In HotCRP, go to the review preferences page.
+2. Scroll to the bottom of the page and find the download controls.
+3. Click `Download`, choose `Preference file with abstracts`, and click `Go`.
+4. In CAL Paper Bidder, click `Load CSV` and choose that downloaded file.
+5. Optionally score the topic sliders to create the first topic-based ranking.
+6. Click `Re-rank` to apply the current topic and text-model weights.
+7. Score papers with the preference sliders. The default range is `-20` to `20`, with `0` meaning no ranking.
+8. Click `Re-rank` again after adding paper scores. Once there are positive and negative scores, the text model joins the ranking.
+9. Use the text-model weight slider if you want more or less influence from the learned model.
+10. Click `Export CSV` when you want the updated preferences file.
+11. Back in HotCRP, use the upload option on the review preferences page to upload the exported preferences file.
 
 `Load Demo` is available before a CSV is loaded. Topic scores can be saved and loaded separately as JSON, but the paper preferences themselves stay in the exported CSV.
