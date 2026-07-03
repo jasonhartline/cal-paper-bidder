@@ -13,6 +13,7 @@ const state = {
   modelWeightManual: false,
   rankingDirty: false,
   exportDirty: false,
+  topicsDirty: false,
   lastLabelStats: { positive: 0, negative: 0, unranked: 0, balanced: 0 },
   lastRankReason: "topic_only",
 };
@@ -44,7 +45,7 @@ const els = {
 els.file.addEventListener("change", async (event) => {
   const file = event.target.files?.[0];
   if (!file) return;
-  if (!confirmDiscardCsvChanges()) {
+  if (!confirmDiscardUnsavedChanges("load a new CSV")) {
     event.target.value = "";
     return;
   }
@@ -53,7 +54,7 @@ els.file.addEventListener("change", async (event) => {
 });
 
 els.loadExample.addEventListener("click", async () => {
-  if (!confirmDiscardCsvChanges()) return;
+  if (!confirmDiscardUnsavedChanges("load the demo CSV")) return;
   const response = await fetch("examples/example-revprefs.csv");
   if (!response.ok) {
     alert("Could not load the example CSV. Try running a local web server.");
@@ -65,6 +66,10 @@ els.loadExample.addEventListener("click", async () => {
 els.topicFile.addEventListener("change", async (event) => {
   const file = event.target.files?.[0];
   if (!file) return;
+  if (!confirmDiscardTopicChanges("load topic scores")) {
+    event.target.value = "";
+    return;
+  }
   await loadTopicScores(await file.text());
   event.target.value = "";
 });
@@ -76,6 +81,8 @@ els.saveTopics.addEventListener("click", () => {
     topics: Object.fromEntries([...state.topicRatings.entries()].sort((a, b) => a[0].localeCompare(b[0]))),
   };
   downloadText("topic-scores.json", JSON.stringify(payload, null, 2) + "\n", "application/json");
+  state.topicsDirty = false;
+  updateTopicSaveState();
 });
 
 els.exportCsv.addEventListener("click", () => {
@@ -128,7 +135,7 @@ for (const input of [els.prefMin, els.prefNeutral, els.prefMax]) {
 }
 
 window.addEventListener("beforeunload", (event) => {
-  if (!state.exportDirty) return;
+  if (!state.exportDirty && !state.topicsDirty) return;
   event.preventDefault();
   event.returnValue = "";
 });
@@ -171,6 +178,7 @@ async function loadCsvText(text, sourceName) {
   rerankPapers();
   state.rankingDirty = false;
   state.exportDirty = false;
+  state.topicsDirty = false;
   renderAll(sourceName);
 }
 
@@ -197,6 +205,8 @@ async function loadTopicScores(text) {
     }
   }
   renderTopics();
+  state.topicsDirty = false;
+  updateTopicSaveState();
   markRankingDirty();
   alert(`Loaded ${loaded} topic score${loaded === 1 ? "" : "s"}.`);
 }
@@ -463,7 +473,7 @@ function renderAll(sourceName) {
   els.workspace.classList.remove("hidden");
   updateLoadDemoVisibility();
   updateExportState();
-  els.saveTopics.disabled = false;
+  updateTopicSaveState();
   renderTopics();
   renderPapers();
   els.rankSummary.textContent = `${rankSummaryText()} Loaded ${state.papers.length} papers from ${sourceName}.`;
@@ -488,6 +498,7 @@ function renderTopics() {
       input.addEventListener("input", () => {
         state.topicRatings.set(topic, Number(input.value));
         label.querySelector("span").textContent = input.value;
+        markTopicsDirty();
         markRankingDirty();
       });
       row.append(label, input);
@@ -660,9 +671,32 @@ function updateLoadDemoVisibility() {
   els.loadExample.classList.toggle("hidden", state.papers.length > 0);
 }
 
-function confirmDiscardCsvChanges() {
-  if (!state.exportDirty) return true;
-  return window.confirm("You have preference changes that have not been exported. Continue and discard them?");
+function markTopicsDirty() {
+  if (!state.papers.length) return;
+  state.topicsDirty = true;
+  updateTopicSaveState();
+}
+
+function updateTopicSaveState() {
+  els.saveTopics.disabled = !state.papers.length;
+  els.saveTopics.textContent = state.topicsDirty ? "Save topic scores *" : "Save topic scores";
+  els.saveTopics.title = state.topicsDirty
+    ? "Topic score changes have not been saved."
+    : "Save topic scores as JSON.";
+}
+
+function confirmDiscardUnsavedChanges(action) {
+  if (!state.exportDirty && !state.topicsDirty) return true;
+  const items = [
+    state.exportDirty ? "preference changes that have not been exported" : "",
+    state.topicsDirty ? "topic score changes that have not been saved" : "",
+  ].filter(Boolean);
+  return window.confirm(`You have ${items.join(" and ")}. Continue to ${action} and discard them?`);
+}
+
+function confirmDiscardTopicChanges(action) {
+  if (!state.topicsDirty) return true;
+  return window.confirm(`You have topic score changes that have not been saved. Continue to ${action} and discard them?`);
 }
 
 function updateRerankState() {
