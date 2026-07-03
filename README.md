@@ -18,7 +18,10 @@ Live app:
 
 ```text
 https://jasonhartline.github.io/cal-paper-bidder/
+https://jasonhartline.com/cal-paper-bidder/
 ```
+
+Pushes to `main` publish the static app into the `jasonhartline/www` GitHub Pages repo under `/cal-paper-bidder/`.
 
 ## Run Locally
 
