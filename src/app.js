@@ -445,7 +445,8 @@ function renderPaperCard(paper) {
     abstractButton.textContent = paper.expanded ? "Hide full abstract" : "Show full abstract";
     abstractButton.addEventListener("click", () => {
       paper.expanded = !paper.expanded;
-      renderPapers();
+      abstract.textContent = paper.expanded ? paper.abstract : truncate(paper.abstract, 560);
+      abstractButton.textContent = paper.expanded ? "Hide full abstract" : "Show full abstract";
     });
     body.append(abstractButton);
   }
