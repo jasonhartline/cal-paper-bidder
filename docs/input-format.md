@@ -31,6 +31,8 @@ In HotCRP:
 
 After using CAL Paper Bidder, export the updated CSV. Then return to the HotCRP review preferences page and use the upload option to upload the exported preferences file.
 
+If the downloaded file only has paper, title, and preference columns, it is the plain preference file and will not work for CAL ranking. Download `Preference file with abstracts` instead; this includes the required `abstract` and `topics` columns.
+
 ## Public Checked-In Example
 
 The checked-in public example is:

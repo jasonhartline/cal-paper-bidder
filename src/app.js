@@ -148,7 +148,7 @@ async function loadCsvText(text, sourceName) {
   }
   const missing = REQUIRED_COLUMNS.filter((column) => !(column in rows[0]));
   if (missing.length) {
-    alert(`Missing required columns: ${missing.join(", ")}`);
+    alert(missingColumnsMessage(missing));
     return;
   }
 
@@ -208,6 +208,16 @@ async function loadTopicScores(text) {
   state.topicsDirty = false;
   updateTopicSaveState();
   markRankingDirty();
+}
+
+function missingColumnsMessage(missing) {
+  const message = [`Missing required columns: ${missing.join(", ")}.`];
+  if (missing.includes("abstract") || missing.includes("topics")) {
+    message.push(
+      "This looks like the plain HotCRP preference file. In HotCRP, use Download, choose Preference file with abstracts, and click Go.",
+    );
+  }
+  return message.join("\n\n");
 }
 
 function readSettings() {
