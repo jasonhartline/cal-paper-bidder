@@ -171,6 +171,10 @@ h2 {
   align-items: start;
 }
 
+.workspace > * {
+  min-width: 0;
+}
+
 .hidden {
   display: none;
 }
@@ -282,6 +286,10 @@ input[type="range"].score-negative {
   border-left: 4px solid transparent;
 }
 
+.paper-card > * {
+  min-width: 0;
+}
+
 .paper-card.score-unranked {
   border-left-color: #b8c0c4;
 }
@@ -302,6 +310,7 @@ input[type="range"].score-negative {
   font-size: 15px;
   line-height: 1.35;
   margin-bottom: 6px;
+  overflow-wrap: anywhere;
 }
 
 .paper-meta {
@@ -318,11 +327,14 @@ input[type="range"].score-negative {
   border-radius: 999px;
   padding: 2px 7px;
   background: #fff;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .abstract {
   font-size: 13px;
   line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .sentence-highlight {
