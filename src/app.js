@@ -504,9 +504,11 @@ function renderTopics() {
       input.max = "3";
       input.step = "1";
       input.value = String(state.topicRatings.get(topic) || 0);
+      input.className = topicScoreStateClass(Number(input.value));
       input.addEventListener("input", () => {
         state.topicRatings.set(topic, Number(input.value));
         label.querySelector("span").textContent = input.value;
+        input.className = topicScoreStateClass(Number(input.value));
         markTopicsDirty();
         markRankingDirty();
       });
@@ -745,6 +747,12 @@ function updateRerankState() {
 function scoreStateClass(preference) {
   if (preference > state.settings.preferenceNeutral) return "score-positive";
   if (preference < state.settings.preferenceNeutral) return "score-negative";
+  return "score-unranked";
+}
+
+function topicScoreStateClass(score) {
+  if (score > 0) return "score-positive";
+  if (score < 0) return "score-negative";
   return "score-unranked";
 }
 
